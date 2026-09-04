@@ -3,51 +3,214 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>68_K Notice Board</title>
+    <title>68_K Notice Board · Live</title>
     <!-- Font Awesome Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="style.css">
+    <style>
+        /* ===== CSS (same as style.css, with minor additions for live sync) ===== */
+        :root {
+            --bg-gradient: linear-gradient(135deg, #e0f2fe 0%, #f0f9ff 100%);
+            --panel-bg: rgba(255, 255, 255, 0.65);
+            --panel-border: rgba(255, 255, 255, 0.8);
+            --text-main: #0f172a;
+            --text-muted: #475569;
+            --primary: #0284c7;
+            --primary-hover: #0369a1;
+            --primary-light: #e0f2fe;
+            --accent-pin: #f59e0b;
+            --danger: #ef4444;
+            --danger-hover: #dc2626;
+            --glass-shadow: 0 8px 32px 0 rgba(0, 119, 182, 0.1);
+            --card-shadow: 0 4px 16px rgba(0, 0, 0, 0.04);
+            --modal-bg: rgba(15, 23, 42, 0.4);
+            --radius-lg: 16px;
+            --radius-md: 10px;
+            --radius-sm: 6px;
+            --transition: all 0.3s ease;
+        }
+
+        [data-theme="dark"] {
+            --bg-gradient: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+            --panel-bg: rgba(30, 41, 59, 0.7);
+            --panel-border: rgba(255, 255, 255, 0.1);
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --primary: #38bdf8;
+            --primary-hover: #0284c7;
+            --primary-light: rgba(56, 189, 248, 0.15);
+            --glass-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+            --card-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+            --modal-bg: rgba(0, 0, 0, 0.6);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+
+        body {
+            background: var(--bg-gradient);
+            background-attachment: fixed;
+            color: var(--text-main);
+            min-height: 100vh;
+            padding: 20px 20px 0 20px;
+            display: flex;
+            flex-direction: column;
+            transition: var(--transition);
+        }
+
+        .glass-panel {
+            background: var(--panel-bg);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid var(--panel-border);
+            box-shadow: var(--glass-shadow);
+            border-radius: var(--radius-lg);
+        }
+
+        header { max-width: 1200px; width: 100%; margin: 0 auto 20px auto; padding: 20px 30px; }
+        .header-container { display: flex; justify-content: space-between; align-items: center; }
+        .brand h1 { font-size: 1.8rem; color: var(--primary); display: flex; align-items: center; gap: 10px; }
+        .brand p { color: var(--text-muted); font-size: 0.95rem; margin-top: 4px; }
+        .header-actions { display: flex; gap: 12px; }
+
+        .main-layout { max-width: 1200px; width: 100%; margin: 0 auto; display: grid; grid-template-columns: 320px 1fr; gap: 20px; flex: 1; }
+        .card { padding: 20px; margin-bottom: 20px; }
+        .card h3 { font-size: 1.1rem; margin-bottom: 15px; color: var(--primary); display: flex; align-items: center; gap: 8px; }
+
+        .calendar-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+        .calendar-header h3 { margin: 0; font-size: 1rem; color: var(--text-main); }
+        .calendar-weekdays { display: grid; grid-template-columns: repeat(7, 1fr); text-align: center; font-weight: bold; font-size: 0.8rem; color: var(--text-muted); margin-bottom: 8px; }
+        .calendar-days { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+        .day { aspect-ratio: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 0.85rem; border-radius: var(--radius-sm); cursor: pointer; position: relative; transition: var(--transition); }
+        .day:hover:not(.empty) { background: var(--primary-light); }
+        .day.today { background: var(--primary); color: #fff; font-weight: bold; }
+        .day.selected { outline: 2px solid var(--primary); }
+        .dot { width: 5px; height: 5px; background-color: var(--primary); border-radius: 50%; position: absolute; bottom: 3px; }
+        .day.today .dot { background-color: #fff; }
+
+        .input-group { position: relative; margin-bottom: 12px; }
+        .input-icon { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--text-muted); }
+        input[type="text"], input[type="password"], input[type="date"], input[type="time"], input[type="url"], select, textarea {
+            width: 100%; padding: 10px 12px 10px 36px; border-radius: var(--radius-md); border: 1px solid var(--panel-border);
+            background: rgba(255, 255, 255, 0.2); color: var(--text-main); outline: none; transition: var(--transition); font-size: 0.9rem;
+        }
+        [data-theme="dark"] input, [data-theme="dark"] select, [data-theme="dark"] textarea { background: rgba(0, 0, 0, 0.2); }
+        input:focus, select:focus, textarea:focus { border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-light); }
+        select { appearance: none; cursor: pointer; }
+
+        button { cursor: pointer; border: none; outline: none; border-radius: var(--radius-md); transition: var(--transition); font-weight: 600; }
+        .btn-primary { background: var(--primary); color: white; padding: 10px 20px; }
+        .btn-primary:hover { background: var(--primary-hover); }
+        .btn-secondary { background: rgba(148, 163, 184, 0.2); color: var(--text-main); padding: 10px 20px; }
+        .btn-secondary:hover { background: rgba(148, 163, 184, 0.3); }
+        .btn-danger { background: var(--danger); color: white; padding: 10px 20px; }
+        .btn-danger:hover { background: var(--danger-hover); }
+        .btn-danger-sm { background: var(--danger); color: white; padding: 6px 12px; font-size: 0.8rem; }
+        .btn-icon { width: 40px; height: 40px; border-radius: 50%; background: var(--panel-bg); color: var(--text-main); display: flex; align-items: center; justify-content: center; box-shadow: var(--card-shadow); border: 1px solid var(--panel-border); }
+        .btn-icon:hover { color: var(--primary); transform: translateY(-2px); }
+        .btn-icon-sm { width: 30px; height: 30px; border-radius: 50%; background: transparent; color: var(--text-main); display: flex; align-items: center; justify-content: center; }
+        .btn-icon-sm:hover { background: var(--primary-light); color: var(--primary); }
+        .btn-full { width: 100%; }
+        .btn-float { position: fixed; bottom: 20px; right: 20px; z-index: 90; opacity: 0; pointer-events: none; }
+        .btn-float.visible { opacity: 1; pointer-events: auto; }
+
+        .feed-header { display: flex; align-items: center; gap: 10px; margin-bottom: 20px; }
+        .badge-count { background: var(--primary-light); color: var(--primary); padding: 2px 10px; border-radius: 20px; font-size: 0.85rem; font-weight: bold; }
+
+        .notices-container { display: flex; flex-direction: column; gap: 16px; }
+        .notice-card { padding: 20px; position: relative; transition: var(--transition); animation: fadeIn 0.4s ease; }
+        .notice-card:hover { transform: translateY(-3px); }
+        .notice-card.pinned { border-left: 4px solid var(--accent-pin); }
+        .pinned-badge { position: absolute; top: 15px; right: 20px; background: rgba(245, 158, 11, 0.15); color: var(--accent-pin); padding: 4px 10px; border-radius: 20px; font-size: 0.75rem; font-weight: bold; }
+        .notice-meta { display: flex; gap: 15px; font-size: 0.8rem; color: var(--text-muted); margin-bottom: 8px; flex-wrap: wrap; }
+        .notice-category { background: var(--primary-light); color: var(--primary); padding: 2px 8px; border-radius: 4px; font-weight: bold; }
+        .notice-title { font-size: 1.25rem; margin-bottom: 10px; padding-right: 80px; }
+        .notice-desc { font-size: 0.95rem; color: var(--text-muted); line-height: 1.5; margin-bottom: 15px; white-space: pre-line; }
+        .notice-footer { display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--panel-border); padding-top: 12px; font-size: 0.85rem; flex-wrap: wrap; gap: 8px; }
+        .notice-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+        .btn-action-text { background: transparent; color: var(--text-muted); font-size: 0.8rem; padding: 4px 8px; }
+        .btn-action-text:hover { color: var(--primary); }
+        .admin-card-controls { display: flex; gap: 6px; margin-left: 10px; padding-left: 10px; border-left: 1px solid var(--panel-border); }
+
+        .empty-state { text-align: center; padding: 50px 20px; color: var(--text-muted); }
+        .empty-icon { font-size: 3rem; margin-bottom: 10px; opacity: 0.5; }
+
+        .site-footer { margin-top: 40px; padding: 20px 0; border-top: 1px solid var(--panel-border); text-align: center; }
+        .footer-container { max-width: 1200px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; padding: 0 10px; }
+        .footer-container p { color: var(--text-muted); font-size: 0.85rem; }
+        .btn-made-by { display: inline-flex; align-items: center; gap: 8px; padding: 8px 16px; background: var(--panel-bg); border: 1px solid var(--panel-border); border-radius: 20px; color: var(--primary); text-decoration: none; font-size: 0.85rem; font-weight: 600; box-shadow: var(--card-shadow); transition: var(--transition); }
+        .btn-made-by:hover { background: var(--primary); color: #ffffff; transform: translateY(-2px); }
+
+        .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: var(--modal-bg); backdrop-filter: blur(4px); display: flex; align-items: center; justify-content: center; z-index: 100; opacity: 1; transition: var(--transition); }
+        .modal-card { width: 90%; max-width: 400px; padding: 25px; animation: scaleUp 0.3s ease; }
+        .modal-lg { max-width: 650px; }
+        .modal-sm { max-width: 320px; text-align: center; }
+        .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        .admin-actions { display: flex; align-items: center; gap: 10px; }
+        .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+        .span-2 { grid-column: span 2; }
+        .form-group { display: flex; flex-direction: column; gap: 4px; }
+        .form-group label { font-size: 0.8rem; font-weight: 600; color: var(--text-muted); }
+        .form-group input, .form-group select, .form-group textarea { padding-left: 12px; }
+        .checkbox-group { flex-direction: row; align-items: center; gap: 8px; }
+        .checkbox-group input { width: auto; }
+        .form-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 15px; }
+        .error-msg { color: var(--danger); font-size: 0.85rem; margin: 8px 0; text-align: center; }
+        .hidden { display: none !important; }
+
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes scaleUp { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
+
+        @media print { body * { visibility: hidden; } .printable, .printable * { visibility: visible; } .printable { position: absolute; left: 0; top: 0; width: 100%; } .notice-actions, .admin-card-controls, .site-footer { display: none !important; } }
+        @media (max-width: 850px) { .main-layout { grid-template-columns: 1fr; } .form-grid { grid-template-columns: 1fr; } .span-2 { grid-column: span 1; } .footer-container { flex-direction: column; justify-content: center; } }
+
+        /* live sync badge */
+        .sync-badge {
+            display: inline-block;
+            background: rgba(34, 197, 94, 0.15);
+            color: #22c55e;
+            font-size: 0.7rem;
+            padding: 2px 10px;
+            border-radius: 20px;
+            margin-left: 10px;
+            font-weight: 600;
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse { 0% { opacity: 0.7; } 50% { opacity: 1; } 100% { opacity: 0.7; } }
+        .live-indicator { display: flex; align-items: center; gap: 6px; font-size: 0.75rem; color: var(--text-muted); }
+        .live-dot { width: 8px; height: 8px; border-radius: 50%; background: #22c55e; display: inline-block; animation: pulse 1.5s infinite; }
+    </style>
 </head>
 <body>
 
-    <!-- Header Section -->
+    <!-- ===== HEADER ===== -->
     <header class="glass-panel">
         <div class="header-container">
             <div class="brand">
                 <h1><i class="fa-solid fa-bullhorn icon-pulse"></i> 68_K Notice Board</h1>
-                <p>Stay updated with all class notices.</p>
+                <p>Stay updated with all class notices. <span class="sync-badge"><i class="fa-solid fa-satellite-dish"></i> live</span></p>
             </div>
             <div class="header-actions">
-                <button id="themeToggleBtn" class="btn-icon" title="Toggle Theme">
-                    <i class="fa-solid fa-moon"></i>
-                </button>
-                <button id="adminBtn" class="btn-icon btn-admin" title="Admin Login">
-                    <i class="fa-solid fa-lock"></i>
-                </button>
+                <button id="themeToggleBtn" class="btn-icon" title="Toggle Theme"><i class="fa-solid fa-moon"></i></button>
+                <button id="adminBtn" class="btn-icon btn-admin" title="Admin Login"><i class="fa-solid fa-lock"></i></button>
             </div>
         </div>
     </header>
 
-    <!-- Main Container -->
+    <!-- ===== MAIN ===== -->
     <main class="main-layout">
-        
-        <!-- Sidebar: Calendar & Controls -->
+        <!-- Sidebar -->
         <aside class="sidebar">
-            <!-- Calendar Card -->
             <div class="glass-panel card calendar-card">
                 <div class="calendar-header">
                     <button id="prevMonth" class="btn-icon-sm"><i class="fa-solid fa-chevron-left"></i></button>
                     <h3 id="calendarMonthYear">Month Year</h3>
                     <button id="nextMonth" class="btn-icon-sm"><i class="fa-solid fa-chevron-right"></i></button>
                 </div>
-                <div class="calendar-weekdays">
-                    <div>Sun</div><div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div>
-                </div>
+                <div class="calendar-weekdays"><div>Sun</div><div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div></div>
                 <div id="calendarDays" class="calendar-days"></div>
                 <button id="clearDateFilter" class="btn-secondary btn-full hidden">Show All Dates</button>
+                <div class="live-indicator" style="margin-top: 12px;"><span class="live-dot"></span> auto-sync across devices</div>
             </div>
 
-            <!-- Search & Filter Card -->
             <div class="glass-panel card filter-card">
                 <h3><i class="fa-solid fa-filter"></i> Search & Filter</h3>
                 <div class="input-group">
@@ -58,30 +221,21 @@
                     <i class="fa-solid fa-layer-group input-icon"></i>
                     <select id="categoryFilter">
                         <option value="All">All Categories</option>
-                        <option value="Assignment">Assignment</option>
-                        <option value="Exam">Exam</option>
-                        <option value="Routine">Routine</option>
-                        <option value="Holiday">Holiday</option>
-                        <option value="Class">Class</option>
-                        <option value="Event">Event</option>
-                        <option value="General">General</option>
+                        <option value="Assignment">Assignment</option><option value="Exam">Exam</option>
+                        <option value="Routine">Routine</option><option value="Holiday">Holiday</option>
+                        <option value="Class">Class</option><option value="Event">Event</option><option value="General">General</option>
                     </select>
                 </div>
             </div>
         </aside>
 
-        <!-- Feed Section: Notices List -->
+        <!-- Feed -->
         <section class="feed">
             <div class="feed-header">
                 <h2 id="feedTitle">All Notices</h2>
                 <span id="noticeCount" class="badge-count">0</span>
             </div>
-
-            <div id="noticesContainer" class="notices-container">
-                <!-- Dynamic Notice Cards Inserted Here -->
-            </div>
-
-            <!-- Empty State -->
+            <div id="noticesContainer" class="notices-container"></div>
             <div id="emptyState" class="empty-state hidden">
                 <i class="fa-solid fa-folder-open empty-icon"></i>
                 <h3>No Notice Available</h3>
@@ -90,28 +244,22 @@
         </section>
     </main>
 
-    <!-- Footer Section with Made By Button -->
+    <!-- ===== FOOTER ===== -->
     <footer class="site-footer">
         <div class="footer-container">
-            <p>© 2026 68_K Notice Board</p>
-            <a href="https://www.facebook.com/share/19GbzcJojg/?mibextid=wwXIfr" target="_blank" rel="noopener noreferrer" class="btn-made-by">
-                <i class="fa-brands fa-facebook"></i> Made by Developer
-            </a>
+            <p>© 2026 68_K Notice Board · <span id="syncStatus">live</span></p>
+            <a href="#" class="btn-made-by" target="_blank"><i class="fa-brands fa-facebook"></i> Made by Developer</a>
         </div>
     </footer>
 
-    <!-- Floating Back To Top Button -->
-    <button id="backToTop" class="btn-icon btn-float" title="Back to Top">
-        <i class="fa-solid fa-arrow-up"></i>
-    </button>
+    <!-- Back to Top -->
+    <button id="backToTop" class="btn-icon btn-float" title="Back to Top"><i class="fa-solid fa-arrow-up"></i></button>
 
-    <!-- Auth Modal (PIN) -->
+    <!-- ===== MODALS ===== -->
+    <!-- Auth PIN -->
     <div id="authModal" class="modal-overlay hidden">
         <div class="glass-panel modal-card">
-            <div class="modal-header">
-                <h3><i class="fa-solid fa-user-shield"></i> Admin Access</h3>
-                <button class="closeModal btn-icon-sm"><i class="fa-solid fa-xmark"></i></button>
-            </div>
+            <div class="modal-header"><h3><i class="fa-solid fa-user-shield"></i> Admin Access</h3><button class="closeModal btn-icon-sm"><i class="fa-solid fa-xmark"></i></button></div>
             <form id="authForm">
                 <p>Please enter the Security PIN:</p>
                 <input type="password" id="pinInput" placeholder="••••" required autofocus>
@@ -121,7 +269,7 @@
         </div>
     </div>
 
-    <!-- Admin Panel Modal -->
+    <!-- Admin Panel -->
     <div id="adminModal" class="modal-overlay hidden">
         <div class="glass-panel modal-card modal-lg">
             <div class="modal-header">
@@ -135,50 +283,22 @@
                 <form id="noticeForm">
                     <input type="hidden" id="noticeId">
                     <div class="form-grid">
-                        <div class="form-group span-2">
-                            <label for="formTitle">Notice Title*</label>
-                            <input type="text" id="formTitle" required placeholder="e.g. Midterm Examination Schedule">
-                        </div>
-                        <div class="form-group">
-                            <label for="formCategory">Category*</label>
+                        <div class="form-group span-2"><label for="formTitle">Notice Title*</label><input type="text" id="formTitle" required placeholder="e.g. Midterm Examination Schedule"></div>
+                        <div class="form-group"><label for="formCategory">Category*</label>
                             <select id="formCategory" required>
-                                <option value="Assignment">Assignment</option>
-                                <option value="Exam">Exam</option>
-                                <option value="Routine">Routine</option>
-                                <option value="Holiday">Holiday</option>
-                                <option value="Class">Class</option>
-                                <option value="Event">Event</option>
-                                <option value="General" selected>General</option>
+                                <option value="Assignment">Assignment</option><option value="Exam">Exam</option>
+                                <option value="Routine">Routine</option><option value="Holiday">Holiday</option>
+                                <option value="Class">Class</option><option value="Event">Event</option><option value="General" selected>General</option>
                             </select>
                         </div>
-                        <div class="form-group">
-                            <label for="formDate">Date*</label>
-                            <input type="date" id="formDate" required>
+                        <div class="form-group"><label for="formDate">Date*</label><input type="date" id="formDate" required></div>
+                        <div class="form-group"><label for="formTime">Time*</label><input type="time" id="formTime" required></div>
+                        <div class="form-group"><label for="formPostedBy">Posted By*</label>
+                            <select id="formPostedBy" required><option value="Teacher">Teacher</option><option value="CR" selected>CR</option><option value="Admin">Admin</option></select>
                         </div>
-                        <div class="form-group">
-                            <label for="formTime">Time*</label>
-                            <input type="time" id="formTime" required>
-                        </div>
-                        <div class="form-group">
-                            <label for="formPostedBy">Posted By*</label>
-                            <select id="formPostedBy" required>
-                                <option value="Teacher">Teacher</option>
-                                <option value="CR" selected>CR</option>
-                                <option value="Admin">Admin</option>
-                            </select>
-                        </div>
-                        <div class="form-group span-2">
-                            <label for="formAttachment">Attachment URL (Optional)</label>
-                            <input type="url" id="formAttachment" placeholder="https://example.com/file.pdf">
-                        </div>
-                        <div class="form-group span-2">
-                            <label for="formDescription">Description (Optional)</label>
-                            <textarea id="formDescription" rows="4" placeholder="Write notice details here..."></textarea>
-                        </div>
-                        <div class="form-group checkbox-group span-2">
-                            <input type="checkbox" id="formPinned">
-                            <label for="formPinned">Pin Notice to top (📌 Important)</label>
-                        </div>
+                        <div class="form-group span-2"><label for="formAttachment">Attachment URL (Optional)</label><input type="url" id="formAttachment" placeholder="https://example.com/file.pdf"></div>
+                        <div class="form-group span-2"><label for="formDescription">Description (Optional)</label><textarea id="formDescription" rows="4" placeholder="Write notice details..."></textarea></div>
+                        <div class="form-group checkbox-group span-2"><input type="checkbox" id="formPinned"><label for="formPinned">Pin Notice to top (📌 Important)</label></div>
                     </div>
                     <div class="form-actions">
                         <button type="button" id="resetFormBtn" class="btn-secondary">Reset</button>
@@ -189,22 +309,356 @@
         </div>
     </div>
 
-    <!-- Confirm Delete Modal with PIN Verification -->
+    <!-- Delete Confirm with PIN -->
     <div id="deleteModal" class="modal-overlay hidden">
         <div class="glass-panel modal-card modal-sm">
             <h3><i class="fa-solid fa-triangle-exclamation" style="color:var(--danger)"></i> Confirm Deletion</h3>
-            <p style="margin-bottom: 12px;">Please enter the Admin PIN to confirm deletion:</p>
-            <div class="input-group">
-                <input type="password" id="deletePinInput" placeholder="Enter PIN" style="text-align: center; padding-left: 12px;">
-            </div>
+            <p style="margin-bottom:12px;">Enter Admin PIN to confirm deletion:</p>
+            <div class="input-group"><input type="password" id="deletePinInput" placeholder="Enter PIN" style="text-align:center;padding-left:12px;"></div>
             <div id="deletePinError" class="error-msg hidden">Wrong PIN</div>
-            <div class="modal-actions" style="margin-top: 15px;">
+            <div class="modal-actions" style="margin-top:15px;display:flex;gap:10px;justify-content:center;">
                 <button id="cancelDeleteBtn" class="btn-secondary">Cancel</button>
                 <button id="confirmDeleteBtn" class="btn-danger">Delete Notice</button>
             </div>
         </div>
     </div>
 
-    <script src="script.js"></script>
+    <script>
+        // ================================================================
+        // 68_K NOTICE BOARD — LIVE SYNC + BROWSER NOTIFICATIONS
+        // ================================================================
+
+        // ----- CONFIG -----
+        const ADMIN_PIN = '1234';
+        const STORAGE_KEY = 'snb_notices';
+        const THEME_KEY = 'snb_theme';
+
+        // ----- STATE -----
+        let notices = [];
+        let isAdmin = false;
+        let selectedDateStr = null;
+        let deleteTargetId = null;
+        let currentCalendarDate = new Date();
+
+        // ----- DEFAULT DATA -----
+        const defaultNotices = [
+            { id: '1', title: 'Updated Class Routine for Spring Semester', category: 'Routine', date: '2026-03-01', time: '09:00', description: 'Revised weekly schedule. Room allocations changed.', postedBy: 'CR', attachment: '', pinned: false },
+            { id: '2', title: 'Assignment 2 Submission Deadline Extended', category: 'Assignment', date: '2026-03-10', time: '23:59', description: 'Due to lab maintenance, deadline extended by 2 days.', postedBy: 'Teacher', attachment: '', pinned: false },
+            { id: '3', title: 'Midterm Examination Schedule Released', category: 'Exam', date: '2026-03-15', time: '10:00', description: 'Check the schedule attached.', postedBy: 'Admin', attachment: 'https://example.com/schedule.pdf', pinned: true },
+            { id: '4', title: 'Upcoming National Holiday Notice', category: 'Holiday', date: '2026-03-26', time: '00:00', description: 'Independence Day. No classes.', postedBy: 'Admin', attachment: '', pinned: false },
+            { id: '5', title: 'Annual Tech Fest Registration Open', category: 'Event', date: '2026-04-05', time: '11:00', description: 'Register now for the coding competition.', postedBy: 'CR', attachment: 'https://example.com/techfest-reg', pinned: false }
+        ];
+
+        // ----- STORAGE -----
+        function loadNotices() {
+            const stored = localStorage.getItem(STORAGE_KEY);
+            if (stored) {
+                try { notices = JSON.parse(stored); } catch { notices = [...defaultNotices]; }
+            } else { notices = [...defaultNotices]; }
+            saveNotices();
+        }
+        function saveNotices() {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(notices));
+            // Trigger cross-tab sync
+            try {
+                const bc = new BroadcastChannel('notice_channel');
+                bc.postMessage({ type: 'UPDATE', payload: notices });
+                bc.close();
+            } catch (_) {}
+        }
+
+        // ----- CROSS-TAB / BROADCAST SYNC -----
+        function initBroadcastSync() {
+            try {
+                const bc = new BroadcastChannel('notice_channel');
+                bc.onmessage = (e) => {
+                    if (e.data.type === 'UPDATE') {
+                        notices = e.data.payload;
+                        // re-render everything
+                        renderCalendar();
+                        renderNotices();
+                        // Show browser notification if supported
+                        if (Notification.permission === 'granted') {
+                            new Notification('📢 68_K Notice Board', {
+                                body: 'Notices have been updated by admin on another device.',
+                                icon: '📋'
+                            });
+                        }
+                    }
+                };
+            } catch (_) { /* BroadcastChannel not supported */ }
+        }
+
+        // ----- REQUEST NOTIFICATION PERMISSION -----
+        function requestNotificationPermission() {
+            if ('Notification' in window && Notification.permission === 'default') {
+                Notification.requestPermission();
+            }
+        }
+
+        // ----- THEME -----
+        function initTheme() {
+            const saved = localStorage.getItem(THEME_KEY) || 'light';
+            document.documentElement.setAttribute('data-theme', saved);
+            updateThemeIcon(saved);
+            document.getElementById('themeToggleBtn').addEventListener('click', () => {
+                const current = document.documentElement.getAttribute('data-theme');
+                const next = current === 'dark' ? 'light' : 'dark';
+                document.documentElement.setAttribute('data-theme', next);
+                localStorage.setItem(THEME_KEY, next);
+                updateThemeIcon(next);
+            });
+        }
+        function updateThemeIcon(theme) {
+            const btn = document.getElementById('themeToggleBtn');
+            btn.innerHTML = theme === 'dark' ? `<i class="fa-solid fa-sun"></i>` : `<i class="fa-solid fa-moon"></i>`;
+        }
+
+        // ----- CALENDAR -----
+        function renderCalendar() {
+            const year = currentCalendarDate.getFullYear(), month = currentCalendarDate.getMonth();
+            const monthNames = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+            document.getElementById('calendarMonthYear').textContent = `${monthNames[month]} ${year}`;
+            const firstDay = new Date(year, month, 1).getDay();
+            const lastDay = new Date(year, month + 1, 0).getDate();
+            const container = document.getElementById('calendarDays');
+            container.innerHTML = '';
+            for (let i = 0; i < firstDay; i++) { const d = document.createElement('div'); d.classList.add('day','empty'); container.appendChild(d); }
+            const today = new Date();
+            for (let day = 1; day <= lastDay; day++) {
+                const div = document.createElement('div');
+                div.classList.add('day');
+                div.textContent = day;
+                const mStr = String(month + 1).padStart(2,'0'), dStr = String(day).padStart(2,'0');
+                const formatted = `${year}-${mStr}-${dStr}`;
+                if (day === today.getDate() && month === today.getMonth() && year === today.getFullYear()) div.classList.add('today');
+                if (selectedDateStr === formatted) div.classList.add('selected');
+                const hasNotice = notices.some(n => n.date === formatted);
+                if (hasNotice) { const dot = document.createElement('span'); dot.classList.add('dot'); div.appendChild(dot); }
+                div.addEventListener('click', () => {
+                    selectedDateStr = formatted;
+                    document.getElementById('clearDateFilter').classList.remove('hidden');
+                    renderCalendar();
+                    renderNotices();
+                });
+                container.appendChild(div);
+            }
+        }
+
+        // ----- RENDER NOTICES -----
+        function renderNotices() {
+            const container = document.getElementById('noticesContainer');
+            const empty = document.getElementById('emptyState');
+            const search = document.getElementById('searchInput').value.toLowerCase();
+            const cat = document.getElementById('categoryFilter').value;
+
+            let filtered = notices.filter(n => {
+                const matchSearch = n.title.toLowerCase().includes(search) || (n.description && n.description.toLowerCase().includes(search)) || n.date.includes(search);
+                const matchCat = (cat === 'All') || (n.category === cat);
+                const matchDate = selectedDateStr ? (n.date === selectedDateStr) : true;
+                return matchSearch && matchCat && matchDate;
+            });
+
+            filtered.sort((a,b) => {
+                if (a.pinned !== b.pinned) return b.pinned ? 1 : -1;
+                return new Date(`${a.date}T${a.time||'00:00'}`) - new Date(`${b.date}T${b.time||'00:00'}`);
+            });
+
+            document.getElementById('feedTitle').textContent = selectedDateStr ? `Notices for ${selectedDateStr}` : 'All Notices';
+            document.getElementById('noticeCount').textContent = filtered.length;
+            container.innerHTML = '';
+
+            if (filtered.length === 0) { empty.classList.remove('hidden'); } else {
+                empty.classList.add('hidden');
+                filtered.forEach(n => container.appendChild(createNoticeCard(n)));
+            }
+        }
+
+        function createNoticeCard(notice) {
+            const card = document.createElement('div');
+            card.className = `glass-panel notice-card ${notice.pinned ? 'pinned' : ''}`;
+            card.id = `notice-${notice.id}`;
+
+            const pinnedBadge = notice.pinned ? `<span class="pinned-badge">📌 Important</span>` : '';
+            const attachment = notice.attachment ? `<a href="${escapeHtml(notice.attachment)}" target="_blank" class="btn-action-text"><i class="fa-solid fa-paperclip"></i> Attachment</a>` : '';
+            const desc = notice.description ? `<p class="notice-desc">${escapeHtml(notice.description)}</p>` : '';
+            const adminControls = isAdmin ? `
+                <div class="admin-card-controls">
+                    <button onclick="togglePin('${notice.id}')" class="btn-icon-sm" title="${notice.pinned ? 'Unpin' : 'Pin'}"><i class="fa-solid fa-thumbtack" style="${notice.pinned ? 'color:var(--accent-pin)' : ''}"></i></button>
+                    <button onclick="openEditModal('${notice.id}')" class="btn-icon-sm" title="Edit"><i class="fa-solid fa-pen"></i></button>
+                    <button onclick="confirmDelete('${notice.id}')" class="btn-icon-sm" title="Delete"><i class="fa-solid fa-trash" style="color:var(--danger)"></i></button>
+                </div>
+            ` : '';
+
+            card.innerHTML = `
+                ${pinnedBadge}
+                <div class="notice-meta">
+                    <span class="notice-category">${escapeHtml(notice.category)}</span>
+                    <span><i class="fa-regular fa-calendar"></i> ${notice.date}</span>
+                    <span><i class="fa-regular fa-clock"></i> ${notice.time}</span>
+                </div>
+                <h3 class="notice-title">${escapeHtml(notice.title)}</h3>
+                ${desc}
+                <div class="notice-footer">
+                    <span>Posted by: <strong>${escapeHtml(notice.postedBy)}</strong></span>
+                    <div class="notice-actions">
+                        ${attachment}
+                        <button onclick="printNotice('${notice.id}')" class="btn-action-text"><i class="fa-solid fa-print"></i> Print</button>
+                        <button onclick="copyNotice('${notice.id}')" class="btn-action-text"><i class="fa-solid fa-copy"></i> Copy</button>
+                        <button onclick="shareNotice('${notice.id}')" class="btn-action-text"><i class="fa-solid fa-share-nodes"></i> Share</button>
+                        ${adminControls}
+                    </div>
+                </div>
+            `;
+            return card;
+        }
+
+        function escapeHtml(str) { if (!str) return ''; return str.replace(/[&<>"']/g, m => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[m])); }
+
+        // ----- NOTICE ACTIONS (print, copy, share) -----
+        function printNotice(id) { const el = document.getElementById(`notice-${id}`); if(!el)return; el.classList.add('printable'); window.print(); el.classList.remove('printable'); }
+        function copyNotice(id) {
+            const n = notices.find(x => x.id === id); if(!n)return;
+            const txt = `[${n.category}] ${n.title}\nDate: ${n.date} Time: ${n.time}\nPosted: ${n.postedBy}${n.description ? '\n\n'+n.description : ''}`;
+            navigator.clipboard.writeText(txt).then(()=>alert('Copied!')).catch(()=>alert('Copy failed.'));
+        }
+        function shareNotice(id) {
+            const n = notices.find(x => x.id === id); if(!n)return;
+            if (navigator.share) { navigator.share({ title: n.title, text: n.description || n.title, url: window.location.href }).catch(()=>{}); }
+            else { copyNotice(id); }
+        }
+
+        // ----- ADMIN: PIN, DASHBOARD, CRUD -----
+        function openAdminDashboard() { resetNoticeForm(); document.getElementById('adminModal').classList.remove('hidden'); }
+        function resetNoticeForm() {
+            document.getElementById('noticeForm').reset();
+            document.getElementById('noticeId').value = '';
+            document.getElementById('saveNoticeBtn').textContent = 'Publish Notice';
+            const now = new Date();
+            document.getElementById('formDate').value = now.toISOString().split('T')[0];
+            document.getElementById('formTime').value = now.toTimeString().slice(0,5);
+        }
+
+        function saveNoticeFromForm() {
+            const id = document.getElementById('noticeId').value;
+            const title = document.getElementById('formTitle').value.trim();
+            const category = document.getElementById('formCategory').value;
+            const date = document.getElementById('formDate').value;
+            const time = document.getElementById('formTime').value;
+            const postedBy = document.getElementById('formPostedBy').value;
+            const attachment = document.getElementById('formAttachment').value.trim();
+            const description = document.getElementById('formDescription').value.trim();
+            const pinned = document.getElementById('formPinned').checked;
+            if (!title || !date || !time) return alert('Please fill all required fields.');
+
+            if (id) {
+                const idx = notices.findIndex(n => n.id === id);
+                if (idx !== -1) notices[idx] = { id, title, category, date, time, postedBy, attachment, description, pinned };
+            } else {
+                const newNotice = { id: Date.now().toString(), title, category, date, time, postedBy, attachment, description, pinned };
+                notices.unshift(newNotice);
+            }
+            saveNotices();
+            renderCalendar();
+            renderNotices();
+            document.getElementById('adminModal').classList.add('hidden');
+            // Trigger notification
+            if (Notification.permission === 'granted') {
+                new Notification('📢 Notice Updated', { body: `"${title}" has been published/updated.`, icon: '📋' });
+            }
+        }
+
+        function openEditModal(id) {
+            const n = notices.find(x => x.id === id); if(!n)return;
+            document.getElementById('noticeId').value = n.id;
+            document.getElementById('formTitle').value = n.title;
+            document.getElementById('formCategory').value = n.category;
+            document.getElementById('formDate').value = n.date;
+            document.getElementById('formTime').value = n.time;
+            document.getElementById('formPostedBy').value = n.postedBy;
+            document.getElementById('formAttachment').value = n.attachment || '';
+            document.getElementById('formDescription').value = n.description || '';
+            document.getElementById('formPinned').checked = n.pinned;
+            document.getElementById('saveNoticeBtn').textContent = 'Save Changes';
+            document.getElementById('adminModal').classList.remove('hidden');
+        }
+
+        function togglePin(id) {
+            const n = notices.find(x => x.id === id); if(n){ n.pinned = !n.pinned; saveNotices(); renderNotices(); }
+        }
+
+        function confirmDelete(id) { deleteTargetId = id; document.getElementById('deletePinInput').value = ''; document.getElementById('deletePinError').classList.add('hidden'); document.getElementById('deleteModal').classList.remove('hidden'); document.getElementById('deletePinInput').focus(); }
+
+        // ----- INIT EVENT LISTENERS -----
+        function setupEventListeners() {
+            document.getElementById('searchInput').addEventListener('input', renderNotices);
+            document.getElementById('categoryFilter').addEventListener('change', renderNotices);
+
+            // back to top
+            const btt = document.getElementById('backToTop');
+            window.addEventListener('scroll', () => { btt.classList.toggle('visible', window.scrollY > 300); });
+            btt.addEventListener('click', () => window.scrollTo({ top:0, behavior:'smooth' }));
+
+            document.querySelectorAll('.closeModal').forEach(btn => {
+                btn.addEventListener('click', () => { btn.closest('.modal-overlay').classList.add('hidden'); });
+            });
+
+            // Admin auth
+            document.getElementById('adminBtn').addEventListener('click', () => {
+                if (isAdmin) { openAdminDashboard(); }
+                else { document.getElementById('authModal').classList.remove('hidden'); document.getElementById('pinInput').value=''; document.getElementById('pinError').classList.add('hidden'); document.getElementById('pinInput').focus(); }
+            });
+
+            document.getElementById('authForm').addEventListener('submit', (e) => {
+                e.preventDefault();
+                if (document.getElementById('pinInput').value === ADMIN_PIN) {
+                    isAdmin = true;
+                    document.getElementById('authModal').classList.add('hidden');
+                    openAdminDashboard();
+                    renderNotices();
+                } else { document.getElementById('pinError').classList.remove('hidden'); }
+            });
+
+            document.getElementById('adminLogoutBtn').addEventListener('click', () => {
+                isAdmin = false;
+                document.getElementById('adminModal').classList.add('hidden');
+                renderNotices();
+            });
+
+            document.getElementById('noticeForm').addEventListener('submit', (e) => { e.preventDefault(); saveNoticeFromForm(); });
+            document.getElementById('resetFormBtn').addEventListener('click', resetNoticeForm);
+
+            document.getElementById('cancelDeleteBtn').addEventListener('click', () => { document.getElementById('deleteModal').classList.add('hidden'); deleteTargetId = null; });
+            document.getElementById('confirmDeleteBtn').addEventListener('click', () => {
+                const pin = document.getElementById('deletePinInput').value;
+                if (pin === ADMIN_PIN) {
+                    if (deleteTargetId) {
+                        notices = notices.filter(n => n.id !== deleteTargetId);
+                        saveNotices();
+                        renderCalendar();
+                        renderNotices();
+                        document.getElementById('deleteModal').classList.add('hidden');
+                        deleteTargetId = null;
+                    }
+                } else { document.getElementById('deletePinError').classList.remove('hidden'); }
+            });
+
+            // Calendar nav
+            document.getElementById('prevMonth').addEventListener('click', () => { currentCalendarDate.setMonth(currentCalendarDate.getMonth()-1); renderCalendar(); });
+            document.getElementById('nextMonth').addEventListener('click', () => { currentCalendarDate.setMonth(currentCalendarDate.getMonth()+1); renderCalendar(); });
+            document.getElementById('clearDateFilter').addEventListener('click', () => { selectedDateStr = null; document.getElementById('clearDateFilter').classList.add('hidden'); renderCalendar(); renderNotices(); });
+        }
+
+        // ----- STARTUP -----
+        document.addEventListener('DOMContentLoaded', () => {
+            loadNotices();
+            initTheme();
+            initBroadcastSync();
+            requestNotificationPermission();
+            setupEventListeners();
+            renderCalendar();
+            renderNotices();
+        });
+    </script>
 </body>
 </html>
