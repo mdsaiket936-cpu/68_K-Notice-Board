@@ -3,8 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>68_K Notice Board · Live</title>
+    <title>68_K Notice Board · Firebase Live</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
     <style>
         /* ===== CSS ===== */
         :root {
@@ -203,6 +206,15 @@
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
         @keyframes scaleUp { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
 
+        .firebase-status {
+            font-size: 0.7rem;
+            padding: 2px 10px;
+            border-radius: 20px;
+            margin-left: 10px;
+        }
+        .firebase-status.connected { background: rgba(34, 197, 94, 0.2); color: #22c55e; }
+        .firebase-status.disconnected { background: rgba(239, 68, 68, 0.2); color: #ef4444; }
+
         @media print { body * { visibility: hidden; } .printable, .printable * { visibility: visible; } .printable { position: absolute; left: 0; top: 0; width: 100%; } .notice-actions, .admin-card-controls, .site-footer { display: none !important; } }
         @media (max-width: 850px) { .main-layout { grid-template-columns: 1fr; } .form-grid { grid-template-columns: 1fr; } .span-2 { grid-column: span 1; } .footer-container { flex-direction: column; justify-content: center; } }
 
@@ -217,10 +229,12 @@
         <div class="header-container">
             <div class="brand">
                 <h1><i class="fa-solid fa-bullhorn"></i> 68_K Notice Board</h1>
-                <p>Stay updated with all class notices. <span class="sync-badge"><i class="fa-solid fa-satellite-dish"></i> live</span></p>
+                <p>Stay updated with all class notices. 
+                    <span class="sync-badge"><i class="fa-solid fa-cloud"></i> Firebase Live</span>
+                    <span id="firebaseStatus" class="firebase-status connected">● Connected</span>
+                </p>
             </div>
             <div class="header-actions">
-                <button id="syncBtn" class="btn-icon" title="Sync Now"><i class="fa-solid fa-rotate"></i></button>
                 <button id="themeToggleBtn" class="btn-icon" title="Toggle Theme"><i class="fa-solid fa-moon"></i></button>
                 <button id="adminBtn" class="btn-icon btn-admin" title="Admin Login"><i class="fa-solid fa-lock"></i></button>
             </div>
@@ -230,7 +244,6 @@
     <!-- ===== MAIN ===== -->
     <main class="main-layout">
         <aside class="sidebar">
-            <!-- Calendar Card -->
             <div class="glass-panel card calendar-card">
                 <div class="calendar-header">
                     <button id="prevMonth" class="btn-icon-sm"><i class="fa-solid fa-chevron-left"></i></button>
@@ -243,8 +256,8 @@
                 <div id="calendarDays" class="calendar-days"></div>
                 <button id="clearDateFilter" class="btn-secondary btn-full hidden">Show All Dates</button>
                 <div class="live-indicator" style="margin-top: 12px;">
-                    <span class="live-dot"></span> auto-sync across tabs
-                    <span id="lastSyncTime" class="sync-time">just now</span>
+                    <span class="live-dot"></span> real-time sync via Firebase
+                    <span id="lastSyncTime" class="sync-time">live</span>
                 </div>
                 <div class="share-section">
                     <button onclick="shareAppLink()" class="btn-secondary btn-full" style="font-size:0.8rem;">
@@ -254,12 +267,10 @@
             </div>
         </aside>
 
-        <!-- Feed Section -->
         <section class="feed">
             <div class="feed-header">
                 <h2 id="feedTitle">All Notices</h2>
                 <span id="noticeCount" class="badge-count">0</span>
-                <button id="manualRefreshBtn" class="btn-icon-sm" title="Refresh"><i class="fa-solid fa-rotate"></i></button>
             </div>
             <div id="noticesContainer" class="notices-container"></div>
             <div id="emptyState" class="empty-state hidden">
@@ -273,7 +284,7 @@
     <!-- ===== FOOTER ===== -->
     <footer class="site-footer">
         <div class="footer-container">
-            <p>© 2026 68_K Notice Board · <span id="syncStatus">live</span></p>
+            <p>© 2026 68_K Notice Board · <span id="syncStatus">⚡ Firebase Realtime</span></p>
             <a href="#" class="btn-made-by" target="_blank"><i class="fa-brands fa-facebook"></i> Made by Developer</a>
         </div>
     </footer>
@@ -351,111 +362,206 @@
 
     <script>
         // ================================================================
-        // 68_K NOTICE BOARD — Full Application
+        // 68_K NOTICE BOARD — FIREBASE REALTIME SYNC
         // ================================================================
 
+        // ===== FIREBASE CONFIGURATION =====
+        // 🔥 REPLACE WITH YOUR FIREBASE CONFIG
+        const firebaseConfig = {
+  apiKey: "AIzaSyBhVXfzI1pvf50qXQl45wFKNnghm5lc4M8",
+  authDomain: "k-notice-board.firebaseapp.com",
+  projectId: "k-notice-board",
+  storageBucket: "k-notice-board.firebasestorage.app",
+  messagingSenderId: "560613947408",
+  appId: "1:560613947408:web:ceeeb116c854e4a47af295",
+  measurementId: "G-JYH14D63S0"
+};
+
+        // ===== INIT FIREBASE =====
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+        const noticesCollection = db.collection('notices');
+
+        // ===== CONSTANTS =====
         const ADMIN_PIN = '1234';
         const STORAGE_KEY = 'snb_notices';
         const THEME_KEY = 'snb_theme';
-        const SYNC_KEY = 'snb_last_sync';
 
         let notices = [];
         let isAdmin = false;
         let selectedDateStr = null;
         let deleteTargetId = null;
         let currentCalendarDate = new Date();
+        let isFirebaseReady = false;
+        let unsubscribeFirebase = null;
 
-        // ----- DEFAULT DATA -----
+        // ===== DEFAULT DATA (used as fallback) =====
         const defaultNotices = [
-            { id: '1', title: 'Updated Class Routine for Spring Semester', category: 'Routine', date: '2026-03-01', time: '09:00', description: 'Revised weekly schedule. Room allocations changed.', postedBy: 'CR', attachment: '', pinned: false },
-            { id: '2', title: 'Assignment 2 Submission Deadline Extended', category: 'Assignment', date: '2026-03-10', time: '23:59', description: 'Due to lab maintenance, deadline extended by 2 days.', postedBy: 'Teacher', attachment: '', pinned: false },
-            { id: '3', title: 'Midterm Examination Schedule Released', category: 'Exam', date: '2026-03-15', time: '10:00', description: 'Check the schedule attached.', postedBy: 'Admin', attachment: 'https://example.com/schedule.pdf', pinned: true },
-            { id: '4', title: 'Upcoming National Holiday Notice', category: 'Holiday', date: '2026-03-26', time: '00:00', description: 'Independence Day. No classes.', postedBy: 'Admin', attachment: '', pinned: false },
-            { id: '5', title: 'Annual Tech Fest Registration Open', category: 'Event', date: '2026-04-05', time: '11:00', description: 'Register now for the coding competition.', postedBy: 'CR', attachment: 'https://example.com/techfest-reg', pinned: false }
+            { id: '1', title: 'Updated Class Routine for Spring Semester', category: 'Routine', date: '2026-03-01', time: '09:00', description: 'Revised weekly schedule. Room allocations changed.', postedBy: 'CR', attachment: '', pinned: false, createdAt: Date.now() },
+            { id: '2', title: 'Assignment 2 Submission Deadline Extended', category: 'Assignment', date: '2026-03-10', time: '23:59', description: 'Due to lab maintenance, deadline extended by 2 days.', postedBy: 'Teacher', attachment: '', pinned: false, createdAt: Date.now() },
+            { id: '3', title: 'Midterm Examination Schedule Released', category: 'Exam', date: '2026-03-15', time: '10:00', description: 'Check the schedule attached.', postedBy: 'Admin', attachment: 'https://example.com/schedule.pdf', pinned: true, createdAt: Date.now() },
+            { id: '4', title: 'Upcoming National Holiday Notice', category: 'Holiday', date: '2026-03-26', time: '00:00', description: 'Independence Day. No classes.', postedBy: 'Admin', attachment: '', pinned: false, createdAt: Date.now() },
+            { id: '5', title: 'Annual Tech Fest Registration Open', category: 'Event', date: '2026-04-05', time: '11:00', description: 'Register now for the coding competition.', postedBy: 'CR', attachment: 'https://example.com/techfest-reg', pinned: false, createdAt: Date.now() }
         ];
 
-        // ----- STORAGE -----
-        function loadNotices() {
+        // ===== FIREBASE: SEED DEFAULT DATA (only if empty) =====
+        async function seedFirebaseIfEmpty() {
+            try {
+                const snapshot = await noticesCollection.limit(1).get();
+                if (snapshot.empty) {
+                    console.log('🔥 Seeding default notices to Firebase...');
+                    for (const notice of defaultNotices) {
+                        await noticesCollection.add({
+                            title: notice.title,
+                            category: notice.category,
+                            date: notice.date,
+                            time: notice.time,
+                            description: notice.description || '',
+                            postedBy: notice.postedBy,
+                            attachment: notice.attachment || '',
+                            pinned: notice.pinned || false,
+                            createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                        });
+                    }
+                    console.log('✅ Default notices seeded!');
+                }
+            } catch (error) {
+                console.warn('⚠️ Could not seed Firebase:', error);
+            }
+        }
+
+        // ===== FIREBASE: REAL-TIME LISTENER =====
+        function startFirebaseListener() {
+            if (unsubscribeFirebase) {
+                unsubscribeFirebase();
+                unsubscribeFirebase = null;
+            }
+
+            // Show loading state
+            document.getElementById('firebaseStatus').className = 'firebase-status connected';
+            document.getElementById('firebaseStatus').textContent = '● Connecting...';
+
+            unsubscribeFirebase = noticesCollection
+                .orderBy('createdAt', 'desc')
+                .onSnapshot((snapshot) => {
+                    // Update status
+                    document.getElementById('firebaseStatus').className = 'firebase-status connected';
+                    document.getElementById('firebaseStatus').textContent = '● Connected';
+
+                    const newNotices = [];
+                    snapshot.forEach((doc) => {
+                        const data = doc.data();
+                        newNotices.push({
+                            id: doc.id,
+                            title: data.title || 'Untitled',
+                            category: data.category || 'General',
+                            date: data.date || new Date().toISOString().split('T')[0],
+                            time: data.time || '00:00',
+                            description: data.description || '',
+                            postedBy: data.postedBy || 'Admin',
+                            attachment: data.attachment || '',
+                            pinned: data.pinned || false,
+                            createdAt: data.createdAt?.toMillis?.() || Date.now()
+                        });
+                    });
+
+                    // Check if data actually changed
+                    const oldIds = notices.map(n => n.id).sort().join(',');
+                    const newIds = newNotices.map(n => n.id).sort().join(',');
+
+                    if (oldIds !== newIds || JSON.stringify(notices) !== JSON.stringify(newNotices)) {
+                        notices = newNotices;
+                        // Save to localStorage as cache
+                        localStorage.setItem(STORAGE_KEY, JSON.stringify(notices));
+                        renderCalendar();
+                        renderNotices();
+                        updateSyncTime();
+
+                        // Show notification for new notices
+                        if (Notification.permission === 'granted' && notices.length > 0) {
+                            const latest = notices[0];
+                            new Notification('📢 New Notice', {
+                                body: `"${latest.title}" - ${latest.category}`,
+                                icon: '📋'
+                            });
+                        }
+                        showToast('📢 Notices updated in real-time!', 'info');
+                    }
+
+                    isFirebaseReady = true;
+                }, (error) => {
+                    console.error('Firebase listener error:', error);
+                    document.getElementById('firebaseStatus').className = 'firebase-status disconnected';
+                    document.getElementById('firebaseStatus').textContent = '● Offline';
+
+                    // Fallback to localStorage
+                    loadNoticesFromCache();
+                    showToast('⚠️ Firebase offline - using cached data', 'error');
+                });
+        }
+
+        // ===== LOCAL STORAGE CACHE =====
+        function loadNoticesFromCache() {
             const stored = localStorage.getItem(STORAGE_KEY);
             if (stored) {
                 try { notices = JSON.parse(stored); } catch { notices = [...defaultNotices]; }
             } else { notices = [...defaultNotices]; }
-            saveNotices();
-        }
-
-        function saveNotices() {
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(notices));
-            localStorage.setItem(SYNC_KEY, Date.now().toString());
-            updateSyncTime();
-            try {
-                const bc = new BroadcastChannel('notice_channel');
-                bc.postMessage({ type: 'UPDATE', payload: notices, timestamp: Date.now() });
-                bc.close();
-            } catch (_) {}
-        }
-
-        function getLastSyncTime() {
-            const ts = localStorage.getItem(SYNC_KEY);
-            return ts ? parseInt(ts) : Date.now();
-        }
-
-        function updateSyncTime() {
-            const el = document.getElementById('lastSyncTime');
-            if (el) {
-                const diff = Math.floor((Date.now() - getLastSyncTime()) / 1000);
-                if (diff < 60) el.textContent = 'just now';
-                else if (diff < 3600) el.textContent = `${Math.floor(diff/60)}m ago`;
-                else el.textContent = `${Math.floor(diff/3600)}h ago`;
-            }
-        }
-
-        // ----- CROSS-TAB SYNC -----
-        function initBroadcastSync() {
-            try {
-                const bc = new BroadcastChannel('notice_channel');
-                bc.onmessage = (e) => {
-                    if (e.data.type === 'UPDATE') {
-                        const newData = e.data.payload;
-                        if (JSON.stringify(notices) !== JSON.stringify(newData)) {
-                            notices = newData;
-                            renderCalendar();
-                            renderNotices();
-                            showToast('📢 Notices updated from another device!', 'info');
-                            if (Notification.permission === 'granted') {
-                                new Notification('📢 68_K Notice Board', {
-                                    body: 'Notices have been updated on another device.',
-                                    icon: '📋'
-                                });
-                            }
-                        }
-                    }
-                };
-            } catch (_) {}
-        }
-
-        window.addEventListener('storage', (e) => {
-            if (e.key === STORAGE_KEY && e.newValue) {
-                try {
-                    const newData = JSON.parse(e.newValue);
-                    if (JSON.stringify(notices) !== JSON.stringify(newData)) {
-                        notices = newData;
-                        renderCalendar();
-                        renderNotices();
-                        showToast('📢 Notices updated from another tab!', 'info');
-                    }
-                } catch (_) {}
-            }
-        });
-
-        function manualSync() {
-            loadNotices();
             renderCalendar();
             renderNotices();
-            showToast('✅ Synced latest notices!', 'success');
-            updateSyncTime();
         }
 
-        // ----- TOAST -----
+        // ===== FIREBASE CRUD OPERATIONS =====
+        async function addNoticeToFirebase(notice) {
+            try {
+                const docRef = await noticesCollection.add({
+                    title: notice.title,
+                    category: notice.category,
+                    date: notice.date,
+                    time: notice.time,
+                    description: notice.description || '',
+                    postedBy: notice.postedBy,
+                    attachment: notice.attachment || '',
+                    pinned: notice.pinned || false,
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+                return docRef.id;
+            } catch (error) {
+                console.error('Error adding notice:', error);
+                throw error;
+            }
+        }
+
+        async function updateNoticeInFirebase(id, notice) {
+            try {
+                await noticesCollection.doc(id).update({
+                    title: notice.title,
+                    category: notice.category,
+                    date: notice.date,
+                    time: notice.time,
+                    description: notice.description || '',
+                    postedBy: notice.postedBy,
+                    attachment: notice.attachment || '',
+                    pinned: notice.pinned || false,
+                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+                return true;
+            } catch (error) {
+                console.error('Error updating notice:', error);
+                throw error;
+            }
+        }
+
+        async function deleteNoticeFromFirebase(id) {
+            try {
+                await noticesCollection.doc(id).delete();
+                return true;
+            } catch (error) {
+                console.error('Error deleting notice:', error);
+                throw error;
+            }
+        }
+
+        // ===== TOAST =====
         function showToast(message, type = 'info') {
             const toast = document.getElementById('toast');
             toast.textContent = message;
@@ -465,7 +571,7 @@
             toast._timeout = setTimeout(() => toast.classList.remove('show'), 3500);
         }
 
-        // ----- SHARE -----
+        // ===== SHARE =====
         function shareAppLink() {
             const url = window.location.href;
             if (navigator.share) {
@@ -489,7 +595,7 @@
             }
         }
 
-        // ----- THEME -----
+        // ===== THEME =====
         function initTheme() {
             const saved = localStorage.getItem(THEME_KEY) || 'light';
             document.documentElement.setAttribute('data-theme', saved);
@@ -508,7 +614,7 @@
             btn.innerHTML = theme === 'dark' ? `<i class="fa-solid fa-sun"></i>` : `<i class="fa-solid fa-moon"></i>`;
         }
 
-        // ----- CALENDAR -----
+        // ===== CALENDAR =====
         function renderCalendar() {
             const year = currentCalendarDate.getFullYear(), month = currentCalendarDate.getMonth();
             const monthNames = ["January","February","March","April","May","June","July","August","September","October","November","December"];
@@ -540,7 +646,7 @@
             updateSyncTime();
         }
 
-        // ----- RENDER NOTICES -----
+        // ===== RENDER NOTICES =====
         function renderNotices() {
             const container = document.getElementById('noticesContainer');
             const empty = document.getElementById('emptyState');
@@ -563,7 +669,6 @@
                 empty.classList.add('hidden');
                 filtered.forEach(n => container.appendChild(createNoticeCard(n)));
             }
-            updateSyncTime();
         }
 
         function createNoticeCard(notice) {
@@ -607,7 +712,7 @@
 
         function escapeHtml(str) { if (!str) return ''; return str.replace(/[&<>"']/g, m => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[m])); }
 
-        // ----- NOTICE ACTIONS -----
+        // ===== NOTICE ACTIONS =====
         function printNotice(id) { const el = document.getElementById(`notice-${id}`); if(!el)return; el.classList.add('printable'); window.print(); el.classList.remove('printable'); }
         function copyNotice(id) {
             const n = notices.find(x => x.id === id); if(!n)return;
@@ -620,7 +725,14 @@
             else { copyNotice(id); }
         }
 
-        // ----- ADMIN -----
+        function updateSyncTime() {
+            const el = document.getElementById('lastSyncTime');
+            if (el) {
+                el.textContent = isFirebaseReady ? 'live' : 'cached';
+            }
+        }
+
+        // ===== ADMIN: CRUD WITH FIREBASE =====
         function openAdminDashboard() { resetNoticeForm(); document.getElementById('adminModal').classList.remove('hidden'); }
         function resetNoticeForm() {
             document.getElementById('noticeForm').reset();
@@ -631,7 +743,7 @@
             document.getElementById('formTime').value = now.toTimeString().slice(0,5);
         }
 
-        function saveNoticeFromForm() {
+        async function saveNoticeFromForm() {
             const id = document.getElementById('noticeId').value;
             const title = document.getElementById('formTitle').value.trim();
             const category = document.getElementById('formCategory').value;
@@ -643,21 +755,22 @@
             const pinned = document.getElementById('formPinned').checked;
             if (!title || !date || !time) return showToast('Please fill all required fields.', 'error');
 
-            if (id) {
-                const idx = notices.findIndex(n => n.id === id);
-                if (idx !== -1) notices[idx] = { id, title, category, date, time, postedBy, attachment, description, pinned };
-                showToast('✅ Notice updated!', 'success');
-            } else {
-                const newNotice = { id: Date.now().toString(), title, category, date, time, postedBy, attachment, description, pinned };
-                notices.unshift(newNotice);
-                showToast('✅ Notice published!', 'success');
-            }
-            saveNotices();
-            renderCalendar();
-            renderNotices();
-            document.getElementById('adminModal').classList.add('hidden');
-            if (Notification.permission === 'granted') {
-                new Notification('📢 Notice Updated', { body: `"${title}" has been published/updated.`, icon: '📋' });
+            try {
+                if (id) {
+                    // Update existing
+                    const noticeData = { id, title, category, date, time, postedBy, attachment, description, pinned };
+                    await updateNoticeInFirebase(id, noticeData);
+                    showToast('✅ Notice updated!', 'success');
+                } else {
+                    // Add new
+                    const noticeData = { title, category, date, time, postedBy, attachment, description, pinned };
+                    await addNoticeToFirebase(noticeData);
+                    showToast('✅ Notice published!', 'success');
+                }
+                document.getElementById('adminModal').classList.add('hidden');
+            } catch (error) {
+                console.error('Save error:', error);
+                showToast('❌ Error saving notice. Check Firebase config.', 'error');
             }
         }
 
@@ -676,17 +789,38 @@
             document.getElementById('adminModal').classList.remove('hidden');
         }
 
-        function togglePin(id) {
-            const n = notices.find(x => x.id === id); if(n){ n.pinned = !n.pinned; saveNotices(); renderNotices(); showToast(n.pinned ? '📌 Pinned!' : 'Unpinned', 'info'); }
+        async function togglePin(id) {
+            const n = notices.find(x => x.id === id); if(!n)return;
+            try {
+                await updateNoticeInFirebase(id, { ...n, pinned: !n.pinned });
+                showToast(n.pinned ? '📌 Pinned!' : 'Unpinned', 'info');
+            } catch (error) {
+                showToast('❌ Error toggling pin', 'error');
+            }
         }
 
         function confirmDelete(id) { deleteTargetId = id; document.getElementById('deletePinInput').value = ''; document.getElementById('deletePinError').classList.add('hidden'); document.getElementById('deleteModal').classList.remove('hidden'); document.getElementById('deletePinInput').focus(); }
 
-        // ----- EVENT LISTENERS -----
-        function setupEventListeners() {
-            document.getElementById('manualRefreshBtn').addEventListener('click', manualSync);
-            document.getElementById('syncBtn').addEventListener('click', manualSync);
+        async function confirmDeleteNotice() {
+            const pin = document.getElementById('deletePinInput').value;
+            if (pin === ADMIN_PIN) {
+                if (deleteTargetId) {
+                    try {
+                        await deleteNoticeFromFirebase(deleteTargetId);
+                        document.getElementById('deleteModal').classList.add('hidden');
+                        deleteTargetId = null;
+                        showToast('🗑️ Notice deleted', 'success');
+                    } catch (error) {
+                        showToast('❌ Error deleting notice', 'error');
+                    }
+                }
+            } else {
+                document.getElementById('deletePinError').classList.remove('hidden');
+            }
+        }
 
+        // ===== EVENT LISTENERS =====
+        function setupEventListeners() {
             const btt = document.getElementById('backToTop');
             window.addEventListener('scroll', () => { btt.classList.toggle('visible', window.scrollY > 300); });
             btt.addEventListener('click', () => window.scrollTo({ top:0, behavior:'smooth' }));
@@ -722,40 +856,42 @@
             document.getElementById('resetFormBtn').addEventListener('click', resetNoticeForm);
 
             document.getElementById('cancelDeleteBtn').addEventListener('click', () => { document.getElementById('deleteModal').classList.add('hidden'); deleteTargetId = null; });
-            document.getElementById('confirmDeleteBtn').addEventListener('click', () => {
-                const pin = document.getElementById('deletePinInput').value;
-                if (pin === ADMIN_PIN) {
-                    if (deleteTargetId) {
-                        notices = notices.filter(n => n.id !== deleteTargetId);
-                        saveNotices();
-                        renderCalendar();
-                        renderNotices();
-                        document.getElementById('deleteModal').classList.add('hidden');
-                        deleteTargetId = null;
-                        showToast('🗑️ Notice deleted', 'success');
-                    }
-                } else { document.getElementById('deletePinError').classList.remove('hidden'); }
-            });
+            document.getElementById('confirmDeleteBtn').addEventListener('click', confirmDeleteNotice);
 
             document.getElementById('prevMonth').addEventListener('click', () => { currentCalendarDate.setMonth(currentCalendarDate.getMonth()-1); renderCalendar(); });
             document.getElementById('nextMonth').addEventListener('click', () => { currentCalendarDate.setMonth(currentCalendarDate.getMonth()+1); renderCalendar(); });
             document.getElementById('clearDateFilter').addEventListener('click', () => { selectedDateStr = null; document.getElementById('clearDateFilter').classList.add('hidden'); renderCalendar(); renderNotices(); });
-
-            setInterval(updateSyncTime, 30000);
         }
 
-        // ----- STARTUP -----
-        document.addEventListener('DOMContentLoaded', () => {
-            loadNotices();
+        // ===== INIT =====
+        async function init() {
+            // Load from cache first
+            loadNoticesFromCache();
+
+            // Initialize theme
             initTheme();
-            initBroadcastSync();
+
+            // Request notifications
             requestNotificationPermission();
+
+            // Setup event listeners
             setupEventListeners();
-            renderCalendar();
-            renderNotices();
-            updateSyncTime();
-            setTimeout(manualSync, 1000);
-        });
+
+            // Initialize Firebase
+            try {
+                await seedFirebaseIfEmpty();
+                startFirebaseListener();
+                showToast('🔥 Firebase connected - real-time sync active!', 'success');
+            } catch (error) {
+                console.error('Firebase init error:', error);
+                document.getElementById('firebaseStatus').className = 'firebase-status disconnected';
+                document.getElementById('firebaseStatus').textContent = '● Error';
+                showToast('⚠️ Firebase connection failed. Using local cache.', 'error');
+            }
+        }
+
+        // ----- START -----
+        document.addEventListener('DOMContentLoaded', init);
     </script>
 </body>
 </html>
