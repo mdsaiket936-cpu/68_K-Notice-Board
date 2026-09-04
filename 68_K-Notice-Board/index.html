@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>68_K Notice Board</title>
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <!-- Header Section -->
+    <header class="glass-panel">
+        <div class="header-container">
+            <div class="brand">
+                <h1><i class="fa-solid fa-bullhorn icon-pulse"></i> 68_K Notice Board</h1>
+                <p>Stay updated with all class notices.</p>
+            </div>
+            <div class="header-actions">
+                <button id="themeToggleBtn" class="btn-icon" title="Toggle Theme">
+                    <i class="fa-solid fa-moon"></i>
+                </button>
+                <button id="adminBtn" class="btn-icon btn-admin" title="Admin Login">
+                    <i class="fa-solid fa-lock"></i>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <main class="main-layout">
+        
+        <!-- Sidebar: Calendar & Controls -->
+        <aside class="sidebar">
+            <!-- Calendar Card -->
+            <div class="glass-panel card calendar-card">
+                <div class="calendar-header">
+                    <button id="prevMonth" class="btn-icon-sm"><i class="fa-solid fa-chevron-left"></i></button>
+                    <h3 id="calendarMonthYear">Month Year</h3>
+                    <button id="nextMonth" class="btn-icon-sm"><i class="fa-solid fa-chevron-right"></i></button>
+                </div>
+                <div class="calendar-weekdays">
+                    <div>Sun</div><div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div>
+                </div>
+                <div id="calendarDays" class="calendar-days"></div>
+                <button id="clearDateFilter" class="btn-secondary btn-full hidden">Show All Dates</button>
+            </div>
+
+            <!-- Search & Filter Card -->
+            <div class="glass-panel card filter-card">
+                <h3><i class="fa-solid fa-filter"></i> Search & Filter</h3>
+                <div class="input-group">
+                    <i class="fa-solid fa-magnifying-glass input-icon"></i>
+                    <input type="text" id="searchInput" placeholder="Search notices...">
+                </div>
+                <div class="input-group">
+                    <i class="fa-solid fa-layer-group input-icon"></i>
+                    <select id="categoryFilter">
+                        <option value="All">All Categories</option>
+                        <option value="Assignment">Assignment</option>
+                        <option value="Exam">Exam</option>
+                        <option value="Routine">Routine</option>
+                        <option value="Holiday">Holiday</option>
+                        <option value="Class">Class</option>
+                        <option value="Event">Event</option>
+                        <option value="General">General</option>
+                    </select>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Feed Section: Notices List -->
+        <section class="feed">
+            <div class="feed-header">
+                <h2 id="feedTitle">All Notices</h2>
+                <span id="noticeCount" class="badge-count">0</span>
+            </div>
+
+            <div id="noticesContainer" class="notices-container">
+                <!-- Dynamic Notice Cards Inserted Here -->
+            </div>
+
+            <!-- Empty State -->
+            <div id="emptyState" class="empty-state hidden">
+                <i class="fa-solid fa-folder-open empty-icon"></i>
+                <h3>No Notice Available</h3>
+                <p>There are no notices matching your current filter criteria.</p>
+            </div>
+        </section>
+    </main>
+
+    <!-- Footer Section with Made By Button -->
+    <footer class="site-footer">
+        <div class="footer-container">
+            <p>© 2026 68_K Notice Board</p>
+            <a href="https://www.facebook.com/share/19GbzcJojg/?mibextid=wwXIfr" target="_blank" rel="noopener noreferrer" class="btn-made-by">
+                <i class="fa-brands fa-facebook"></i> Made by Developer
+            </a>
+        </div>
+    </footer>
+
+    <!-- Floating Back To Top Button -->
+    <button id="backToTop" class="btn-icon btn-float" title="Back to Top">
+        <i class="fa-solid fa-arrow-up"></i>
+    </button>
+
+    <!-- Auth Modal (PIN) -->
+    <div id="authModal" class="modal-overlay hidden">
+        <div class="glass-panel modal-card">
+            <div class="modal-header">
+                <h3><i class="fa-solid fa-user-shield"></i> Admin Access</h3>
+                <button class="closeModal btn-icon-sm"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <form id="authForm">
+                <p>Please enter the Security PIN:</p>
+                <input type="password" id="pinInput" placeholder="••••" required autofocus>
+                <div id="pinError" class="error-msg hidden">Wrong PIN</div>
+                <button type="submit" class="btn-primary btn-full">Unlock Dashboard</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Admin Panel Modal -->
+    <div id="adminModal" class="modal-overlay hidden">
+        <div class="glass-panel modal-card modal-lg">
+            <div class="modal-header">
+                <h3><i class="fa-solid fa-sliders"></i> Admin Dashboard</h3>
+                <div class="admin-actions">
+                    <button id="adminLogoutBtn" class="btn-danger-sm"><i class="fa-solid fa-right-from-bracket"></i> Logout</button>
+                    <button class="closeModal btn-icon-sm"><i class="fa-solid fa-xmark"></i></button>
+                </div>
+            </div>
+            <div class="modal-body">
+                <form id="noticeForm">
+                    <input type="hidden" id="noticeId">
+                    <div class="form-grid">
+                        <div class="form-group span-2">
+                            <label for="formTitle">Notice Title*</label>
+                            <input type="text" id="formTitle" required placeholder="e.g. Midterm Examination Schedule">
+                        </div>
+                        <div class="form-group">
+                            <label for="formCategory">Category*</label>
+                            <select id="formCategory" required>
+                                <option value="Assignment">Assignment</option>
+                                <option value="Exam">Exam</option>
+                                <option value="Routine">Routine</option>
+                                <option value="Holiday">Holiday</option>
+                                <option value="Class">Class</option>
+                                <option value="Event">Event</option>
+                                <option value="General" selected>General</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="formDate">Date*</label>
+                            <input type="date" id="formDate" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="formTime">Time*</label>
+                            <input type="time" id="formTime" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="formPostedBy">Posted By*</label>
+                            <select id="formPostedBy" required>
+                                <option value="Teacher">Teacher</option>
+                                <option value="CR" selected>CR</option>
+                                <option value="Admin">Admin</option>
+                            </select>
+                        </div>
+                        <div class="form-group span-2">
+                            <label for="formAttachment">Attachment URL (Optional)</label>
+                            <input type="url" id="formAttachment" placeholder="https://example.com/file.pdf">
+                        </div>
+                        <div class="form-group span-2">
+                            <label for="formDescription">Description (Optional)</label>
+                            <textarea id="formDescription" rows="4" placeholder="Write notice details here..."></textarea>
+                        </div>
+                        <div class="form-group checkbox-group span-2">
+                            <input type="checkbox" id="formPinned">
+                            <label for="formPinned">Pin Notice to top (📌 Important)</label>
+                        </div>
+                    </div>
+                    <div class="form-actions">
+                        <button type="button" id="resetFormBtn" class="btn-secondary">Reset</button>
+                        <button type="submit" class="btn-primary" id="saveNoticeBtn">Publish Notice</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Confirm Delete Modal with PIN Verification -->
+    <div id="deleteModal" class="modal-overlay hidden">
+        <div class="glass-panel modal-card modal-sm">
+            <h3><i class="fa-solid fa-triangle-exclamation" style="color:var(--danger)"></i> Confirm Deletion</h3>
+            <p style="margin-bottom: 12px;">Please enter the Admin PIN to confirm deletion:</p>
+            <div class="input-group">
+                <input type="password" id="deletePinInput" placeholder="Enter PIN" style="text-align: center; padding-left: 12px;">
+            </div>
+            <div id="deletePinError" class="error-msg hidden">Wrong PIN</div>
+            <div class="modal-actions" style="margin-top: 15px;">
+                <button id="cancelDeleteBtn" class="btn-secondary">Cancel</button>
+                <button id="confirmDeleteBtn" class="btn-danger">Delete Notice</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
