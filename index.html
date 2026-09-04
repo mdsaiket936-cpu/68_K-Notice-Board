@@ -6,7 +6,7 @@
     <title>68_K Notice Board · Live</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        /* ===== CSS (full styles from previous version) ===== */
+        /* ===== CSS ===== */
         :root {
             --bg-gradient: linear-gradient(135deg, #e0f2fe 0%, #f0f9ff 100%);
             --panel-bg: rgba(255, 255, 255, 0.65);
@@ -174,7 +174,6 @@
         .live-dot { width: 8px; height: 8px; border-radius: 50%; background: #22c55e; display: inline-block; animation: pulse 1.5s infinite; }
         .sync-time { font-size: 0.7rem; color: var(--text-muted); margin-left: 8px; }
 
-        /* Toast notification */
         .toast {
             position: fixed;
             bottom: 80px;
@@ -217,7 +216,7 @@
     <header class="glass-panel">
         <div class="header-container">
             <div class="brand">
-                <h1><i class="fa-solid fa-bullhorn icon-pulse"></i> 68_K Notice Board</h1>
+                <h1><i class="fa-solid fa-bullhorn"></i> 68_K Notice Board</h1>
                 <p>Stay updated with all class notices. <span class="sync-badge"><i class="fa-solid fa-satellite-dish"></i> live</span></p>
             </div>
             <div class="header-actions">
@@ -231,45 +230,31 @@
     <!-- ===== MAIN ===== -->
     <main class="main-layout">
         <aside class="sidebar">
+            <!-- Calendar Card -->
             <div class="glass-panel card calendar-card">
                 <div class="calendar-header">
                     <button id="prevMonth" class="btn-icon-sm"><i class="fa-solid fa-chevron-left"></i></button>
                     <h3 id="calendarMonthYear">Month Year</h3>
                     <button id="nextMonth" class="btn-icon-sm"><i class="fa-solid fa-chevron-right"></i></button>
                 </div>
-                <div class="calendar-weekdays"><div>Sun</div><div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div></div>
+                <div class="calendar-weekdays">
+                    <div>Sun</div><div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div>
+                </div>
                 <div id="calendarDays" class="calendar-days"></div>
                 <button id="clearDateFilter" class="btn-secondary btn-full hidden">Show All Dates</button>
                 <div class="live-indicator" style="margin-top: 12px;">
                     <span class="live-dot"></span> auto-sync across tabs
-                    <span id="lastSyncTime" class="sync-time">last sync: now</span>
+                    <span id="lastSyncTime" class="sync-time">just now</span>
                 </div>
-                <!-- Share/Sync info -->
                 <div class="share-section">
                     <button onclick="shareAppLink()" class="btn-secondary btn-full" style="font-size:0.8rem;">
                         <i class="fa-solid fa-share-nodes"></i> Share this board
                     </button>
                 </div>
             </div>
-
-            <div class="glass-panel card filter-card">
-                <h3><i class="fa-solid fa-filter"></i> Search & Filter</h3>
-                <div class="input-group">
-                    <i class="fa-solid fa-magnifying-glass input-icon"></i>
-                    <input type="text" id="searchInput" placeholder="Search notices...">
-                </div>
-                <div class="input-group">
-                    <i class="fa-solid fa-layer-group input-icon"></i>
-                    <select id="categoryFilter">
-                        <option value="All">All Categories</option>
-                        <option value="Assignment">Assignment</option><option value="Exam">Exam</option>
-                        <option value="Routine">Routine</option><option value="Holiday">Holiday</option>
-                        <option value="Class">Class</option><option value="Event">Event</option><option value="General">General</option>
-                    </select>
-                </div>
-            </div>
         </aside>
 
+        <!-- Feed Section -->
         <section class="feed">
             <div class="feed-header">
                 <h2 id="feedTitle">All Notices</h2>
@@ -366,7 +351,7 @@
 
     <script>
         // ================================================================
-        // 68_K NOTICE BOARD — CROSS-DEVICE SYNC VIA STORAGE EVENTS
+        // 68_K NOTICE BOARD — Full Application
         // ================================================================
 
         const ADMIN_PIN = '1234';
@@ -402,7 +387,6 @@
             localStorage.setItem(STORAGE_KEY, JSON.stringify(notices));
             localStorage.setItem(SYNC_KEY, Date.now().toString());
             updateSyncTime();
-            // Broadcast to other tabs
             try {
                 const bc = new BroadcastChannel('notice_channel');
                 bc.postMessage({ type: 'UPDATE', payload: notices, timestamp: Date.now() });
@@ -425,13 +409,12 @@
             }
         }
 
-        // ----- CROSS-TAB SYNC (BroadcastChannel) -----
+        // ----- CROSS-TAB SYNC -----
         function initBroadcastSync() {
             try {
                 const bc = new BroadcastChannel('notice_channel');
                 bc.onmessage = (e) => {
                     if (e.data.type === 'UPDATE') {
-                        // Only update if the data is different
                         const newData = e.data.payload;
                         if (JSON.stringify(notices) !== JSON.stringify(newData)) {
                             notices = newData;
@@ -447,10 +430,9 @@
                         }
                     }
                 };
-            } catch (_) { /* BroadcastChannel not supported */ }
+            } catch (_) {}
         }
 
-        // ----- STORAGE EVENT (cross-tab fallback) -----
         window.addEventListener('storage', (e) => {
             if (e.key === STORAGE_KEY && e.newValue) {
                 try {
@@ -465,7 +447,6 @@
             }
         });
 
-        // ----- MANUAL SYNC -----
         function manualSync() {
             loadNotices();
             renderCalendar();
@@ -484,7 +465,7 @@
             toast._timeout = setTimeout(() => toast.classList.remove('show'), 3500);
         }
 
-        // ----- SHARE APP LINK -----
+        // ----- SHARE -----
         function shareAppLink() {
             const url = window.location.href;
             if (navigator.share) {
@@ -497,13 +478,11 @@
                 navigator.clipboard.writeText(url).then(() => {
                     showToast('📋 Link copied! Share it with others.', 'success');
                 }).catch(() => {
-                    // Fallback: prompt
                     prompt('Copy this link to share:', url);
                 });
             }
         }
 
-        // ----- NOTIFICATION PERMISSION -----
         function requestNotificationPermission() {
             if ('Notification' in window && Notification.permission === 'default') {
                 Notification.requestPermission();
@@ -565,14 +544,10 @@
         function renderNotices() {
             const container = document.getElementById('noticesContainer');
             const empty = document.getElementById('emptyState');
-            const search = document.getElementById('searchInput').value.toLowerCase();
-            const cat = document.getElementById('categoryFilter').value;
 
             let filtered = notices.filter(n => {
-                const matchSearch = n.title.toLowerCase().includes(search) || (n.description && n.description.toLowerCase().includes(search)) || n.date.includes(search);
-                const matchCat = (cat === 'All') || (n.category === cat);
                 const matchDate = selectedDateStr ? (n.date === selectedDateStr) : true;
-                return matchSearch && matchCat && matchDate;
+                return matchDate;
             });
 
             filtered.sort((a,b) => {
@@ -709,12 +684,9 @@
 
         // ----- EVENT LISTENERS -----
         function setupEventListeners() {
-            document.getElementById('searchInput').addEventListener('input', renderNotices);
-            document.getElementById('categoryFilter').addEventListener('change', renderNotices);
             document.getElementById('manualRefreshBtn').addEventListener('click', manualSync);
             document.getElementById('syncBtn').addEventListener('click', manualSync);
 
-            // Back to top
             const btt = document.getElementById('backToTop');
             window.addEventListener('scroll', () => { btt.classList.toggle('visible', window.scrollY > 300); });
             btt.addEventListener('click', () => window.scrollTo({ top:0, behavior:'smooth' }));
@@ -723,7 +695,6 @@
                 btn.addEventListener('click', () => { btn.closest('.modal-overlay').classList.add('hidden'); });
             });
 
-            // Admin auth
             document.getElementById('adminBtn').addEventListener('click', () => {
                 if (isAdmin) { openAdminDashboard(); }
                 else { document.getElementById('authModal').classList.remove('hidden'); document.getElementById('pinInput').value=''; document.getElementById('pinError').classList.add('hidden'); document.getElementById('pinInput').focus(); }
@@ -766,12 +737,10 @@
                 } else { document.getElementById('deletePinError').classList.remove('hidden'); }
             });
 
-            // Calendar
             document.getElementById('prevMonth').addEventListener('click', () => { currentCalendarDate.setMonth(currentCalendarDate.getMonth()-1); renderCalendar(); });
             document.getElementById('nextMonth').addEventListener('click', () => { currentCalendarDate.setMonth(currentCalendarDate.getMonth()+1); renderCalendar(); });
             document.getElementById('clearDateFilter').addEventListener('click', () => { selectedDateStr = null; document.getElementById('clearDateFilter').classList.add('hidden'); renderCalendar(); renderNotices(); });
 
-            // Update sync time periodically
             setInterval(updateSyncTime, 30000);
         }
 
@@ -785,7 +754,6 @@
             renderCalendar();
             renderNotices();
             updateSyncTime();
-            // Auto-sync check
             setTimeout(manualSync, 1000);
         });
     </script>
